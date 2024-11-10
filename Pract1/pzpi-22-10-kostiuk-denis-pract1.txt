@@ -1,0 +1,315 @@
+﻿Харківський національний університет радіоелектроніки
+
+Кафедра програмної інженерії
+
+
+
+
+
+
+
+Звіт 
+З Практичної роботи № 1.
+«Kotlin Code Convention»
+
+з дисципліни «Аналіз та Рефакторинг коду» 
+
+
+
+
+
+
+
+Виконав:                ст. гр. ПЗПІ 22-10  Костюк Д.В.Перевірив: 
+Сокорчук І.П.
+
+
+
+Харків 2024
+     Мета: 
+     Навчитися рефакторингу програмного коду, закріпити основні правила оформлення коду
+     
+     Завдання:
+     Обрати мову програмування для прикладів коду. Створити презентацію на тему «Правила оформлення програмного коду».
+     
+     Хід роботи:
+     Було обрано мову програмування Kotlin. У Додатку Б наведено загальні правила і рекомендації щодо дотримання оформлення програмного коду на мові Kotlin, а також демонстрація переваг застосування цих рекомендацій.
+     
+     Висновок:
+     Було докладно досліджено Code Convention для мови програмування Kotlin. Також було набуто навички рефакторингу програмного коду. 
+     
+     Додатки 
+     1. Coding conventions﻿. Kotlin. URL: https://kotlinlang.org/docs/coding-conventions.html (дата звернення: 09.11.2024).
+     2. Kotlin style guide. Android Developers. URL: https://developer.android.com/kotlin/style-guide (дата звернення: 09.11.2024).
+     
+     
+     Відео презентація: https://youtu.be/abJ_TUSsBCk
+     
+     
+     
+
+
+     ДОДАТОК А
+     
+     Програмний код який був використаний як приклад у презентації 
+     
+     package org.example.config
+     
+     import org.eclipse.paho.client.mqttv3.MqttClient
+     import org.eclipse.paho.client.mqttv3.MqttConnectOptions
+     import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
+     import org.springframework.context.annotation.Bean
+     import org.springframework.context.annotation.Configuration
+     
+     @Configuration
+     class MqttConfig {
+     
+         private lateinit var brokerUrl: String
+         private lateinit var clientId: String
+         private lateinit var userName: String
+         private lateinit var password: String
+     
+         @Bean
+         fun getMqttConnectOptions(): MqttConnectOptions {
+             return MqttConnectOptions().apply {
+                 isCleanSession = true // Брокер не зберігає дані про поредені підписки
+                 userName = this@MqttConfig.userName
+                 password = this@MqttConfig.password.toCharArray()
+                 isAutomaticReconnect = true
+                 connectionTimeout = 30
+                 keepAliveInterval = 60 // Інтервал у секундах для перевірки підключення до брокера
+             }
+         }
+     
+         @Bean
+         fun getMqttClient(mqttConnectOptions: MqttConnectOptions): MqttClient {
+             val client = MqttClient(brokerUrl, clientId, MemoryPersistence())
+             client.connect(mqttConnectOptions) // Підключає клієнта до брокера
+             return client
+         }
+     }
+     
+     package org.anware.core.controller
+     
+     import org.anware.core.services.ProductService
+     import org.anware.database.models.ProductModel
+     import org.springframework.web.bind.annotation.*
+     
+     @RestController
+     @RequestMapping("/products")
+     class ProductController(private val productService: ProductService) {
+     
+         @GetMapping
+         fun getAllProducts(): List<ProductModel> {
+             return productService.getAllProducts()
+         }
+     
+         @PostMapping
+         fun addProduct(@RequestBody product: ProductModel): ProductModel {
+             return productService.addProduct(product)
+         }
+     }
+     
+     package org.anware.core.extensions
+     
+     import org.anware.database.models.ProductModel
+     import org.anware.dto.ProductPayload
+     
+     fun ProductPayload.toEntity(): ProductModel {
+         return ProductModel(
+             id = this.id
+         )
+     }
+     
+     package org.example.core.handlers
+     
+     import org.springframework.stereotype.Component
+     
+     @Component
+     class ClientResponseHandler {
+     
+         fun handleResponse(response: String): String {
+             // Обробка відповіді в залежності від статусу
+             return when (response) {
+                 "success" -> "Operation was successful"
+                 "error" -> "There was an error"
+                 else -> "Unknown status"
+             }
+         }
+     }
+     
+     /**
+      * Інтерфейс обробки MQTT-повідомлень.
+      * Реалізація цього інтерфейсу дозволяє класу обробляти повідомлення,
+      * отримані з різних MQTT-тем.
+      */
+     interface MqttMessageHandler {
+     
+         /**
+          * Обробляє повідомлення, отримане з вказаної теми.
+          *
+          * @param topic Тема MQTT, з якої надійшло повідомлення.
+          * @param payload Вміст повідомлення у вигляді рядка.
+          */
+         fun handleMessage(topic: String, payload: String)
+     }
+
+	package org.example.core.handlers
+     
+     import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+     import org.anware.core.exeptions.ProductPayloadException
+     import org.anware.core.extensions.toEntity
+     import org.anware.core.services.ProductService
+     import org.anware.database.models.ProductModel
+     import org.anware.dto.ProductPayload
+     import org.springframework.stereotype.Component
+     
+     @Component
+     class ProductMqttHandler(private val productService: ProductService) : MqttMessageHandler {
+     
+         override fun handleMessage(topic: String, payload: String) {
+             when (topic) {
+                 "warehouse/entry" -> handleProductEntry(payload)
+                 "warehouse/exit" -> handleProductExit(payload)
+                 else -> logUnknownTopic(topic)
+             }
+         }
+     
+         private fun handleProductEntry(payload: String) {
+             val product = parseProductFromPayload(payload)
+             productService.addProduct(product)
+         }
+     
+         private fun handleProductExit(payload: String) {
+             val productId = extractProductIdFromPayload(payload)
+             productService.deleteProduct(productId)
+         }
+     
+         private fun parseProductFromPayload(payload: String): ProductModel {
+             return try {
+                 val productPayload: ProductPayload = deserializePayload(payload, ProductPayload::class.java)
+                 productPayload.toEntity()
+             } catch (e: Exception) {
+                 throw ProductPayloadException("Error parsing product from payload", e)
+             }
+         }
+     
+         private fun extractProductIdFromPayload(payload: String): String {
+             return try {
+                 val productPayload: ProductPayload = deserializePayload(payload, ProductPayload::class.java)
+                 productPayload.id.toString()
+             } catch (e: Exception) {
+                 throw ProductPayloadException("Error extracting product ID from payload", e)
+             }
+         }
+     
+         private fun <T> deserializePayload(payload: String, clazz: Class<T>): T {
+             val objectMapper = jacksonObjectMapper()
+             return objectMapper.readValue(payload, clazz)
+         }
+     
+         private fun logUnknownTopic(topic: String) {
+             println("Unknown topic: $topic")
+         }
+     
+     }
+     
+     package org.anware.core.services
+     
+     import jakarta.annotation.PostConstruct
+     import org.eclipse.paho.client.mqttv3.IMqttMessageListener
+     import org.eclipse.paho.client.mqttv3.MqttClient
+     import org.example.core.handlers.MqttMessageHandler
+     import org.springframework.stereotype.Service
+     
+     @Service
+     class MqttBrokerService(
+         private val mqttClient: MqttClient,
+         private val handlers: List<MqttMessageHandler>
+         ) {
+     
+         @PostConstruct
+         fun init() {
+             mqttClient.subscribe("warehouse/entry/#", IMqttMessageListener { topic, message ->
+                 notifyHandlers(topic, String(message.payload))
+             })
+         }
+     
+         private fun notifyHandlers(topic: String, payload: String) {
+             handlers.forEach { handler -> handler.handleMessage(topic, payload) }
+         }
+     }
+     
+     package org.anware.core.services
+     
+     import org.anware.database.controler.ProductORM
+     import org.anware.database.models.ProductModel
+     import org.springframework.stereotype.Service
+     
+     @Service
+     class ProductService(private val productRepository: ProductORM) {
+     
+         fun addProduct(product: ProductModel): ProductModel = productRepository.save(product)
+     
+         fun getAllProducts(): List<ProductModel> = productRepository.findAll()
+     
+         fun deleteProduct(id: String) {
+             productRepository.deleteById(id)
+         }
+     }
+     
+     package org.anware.database.controler
+     
+     import org.anware.database.models.ProductModel
+     import org.anware.database.models.Warehouse
+     import org.anware.database.models.WarehouseSection
+     import org.springframework.data.jpa.repository.JpaRepository
+     
+     interface ProductORM : JpaRepository<ProductModel, String>
+     
+     interface WarehouseORM : JpaRepository<Warehouse, String>
+     
+     interface SectionORM : JpaRepository<WarehouseSection, String>
+     
+     package org.anware.database.models
+     
+     import jakarta.persistence.Entity
+     import jakarta.persistence.Id
+     import jakarta.persistence.Table
+     
+     @Entity
+     @Table(name = "product")
+     data class ProductModel(
+         @Id
+         val id: Long,
+         val name: String,
+         val sectionId: Long
+     )
+     
+     @Entity
+     @Table(name = "warehouse")
+     data class Warehouse(
+         @Id
+         val id: Int,
+     )
+     
+     @Entity
+     @Table(name = "section")
+     data class WarehouseSection(
+         @Id
+         val id: Int
+     )
+     
+     
+     package org.anware.dto
+     
+     data class ProductPayload(
+         val id: Long,
+         val name: String,
+         val sectionId: Long
+     )
+
+
+     ДОДАТОК Б
+     Презентація про рекомендації до оформлення коду за Kotlin Code Convention 
+     
