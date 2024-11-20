@@ -5,6 +5,8 @@ import org.anware.dto.ProductPayload
 
 fun ProductPayload.toEntity(): ProductModel {
     return ProductModel(
-        id = this.id
+        id = this.id,
+        name = this.name,
+        sectionId = this.sectionId
     )
 }

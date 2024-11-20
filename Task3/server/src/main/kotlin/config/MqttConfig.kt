@@ -1,56 +1,52 @@
 package org.example.config
 
-import org.eclipse.paho.client.mqttv3.MqttClient
-import org.eclipse.paho.client.mqttv3.MqttConnectOptions
-import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
+import org.anware.core.services.MqttBrokerService
+import org.example.core.handlers.MqttMessageHandler
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.integration.channel.DirectChannel
+import org.springframework.integration.mqtt.core.DefaultMqttPahoClientFactory
+import org.springframework.integration.mqtt.core.MqttPahoClientFactory
+import org.springframework.integration.mqtt.inbound.MqttPahoMessageDrivenChannelAdapter
+import org.springframework.messaging.MessageChannel
 
-/**
- * Конфігурація MQTT-клієнта для підключення до брокера MQTT.
- */
 @Configuration
 class MqttConfig {
 
-    // URL брокера MQTT
-    private lateinit var brokerUrl: String
+    @Value("\${mqtt.host}")
+    lateinit var mqttHost: String
 
-    // Ідентифікатор клієнта MQTT
-    private lateinit var clientId: String
+    @Value("\${mqtt.username}")
+    lateinit var mqttUsername: String
 
-    // Ім'я користувача для автентифікації
-    private lateinit var userName: String
+    @Value("\${mqtt.password}")
+    lateinit var mqttPassword: String
 
-    // Пароль для автентифікації
-    private lateinit var password: String
-
-    /**
-     * Налаштування підключення до брокера MQTT.
-     *
-     * @return Налаштовані параметри підключення.
-     */
     @Bean
-    fun mqttConnectOptions(): MqttConnectOptions {
-        return MqttConnectOptions().apply {
-            isCleanSession = true // Брокер не зберігає дані про поредені підписки
-            userName = this@MqttConfig.userName
-            password = this@MqttConfig.password.toCharArray()
-            isAutomaticReconnect = true
-            connectionTimeout = 30
-            keepAliveInterval = 60 // Інтервал у секундах для перевірки підключення до брокера
+    fun mqttClientFactory(): MqttPahoClientFactory {
+        val factory = DefaultMqttPahoClientFactory()
+        factory.connectionOptions.apply {
+            this.userName = mqttUsername
+            this.password = mqttPassword.toCharArray()
+            this.serverURIs = arrayOf(mqttHost)
         }
+        return factory
     }
 
-    /**
-     * Створює MQTT-клієнт з заданими параметрами підключення.
-     *
-     * @param mqttConnectOptions Параметри підключення, створені методом mqttConnectOptions().
-     * @return підключенний MQTT-клієнт.
-     */
     @Bean
-    fun mqttClient(mqttConnectOptions: MqttConnectOptions): MqttClient {
-        val client = MqttClient(brokerUrl, clientId, MemoryPersistence())
-        client.connect(mqttConnectOptions) // Підключає клієнта до брокера
-        return client
+    fun inputChannel(): MessageChannel = DirectChannel()
+
+    @Bean
+    fun mqttAdapter(mqttClientFactory: MqttPahoClientFactory, inputChannel: MessageChannel): MqttPahoMessageDrivenChannelAdapter {
+        val mqttAdapter = MqttPahoMessageDrivenChannelAdapter("mqttClientId", mqttClientFactory, "warehouse/entry/#")
+        mqttAdapter.setOutputChannel(inputChannel)
+        return mqttAdapter
     }
+
+    @Bean
+    fun mqttBrokerService(handlers: List<MqttMessageHandler>, mqttClientFactory: MqttPahoClientFactory): MqttBrokerService {
+        return MqttBrokerService(handlers, mqttClientFactory)
+    }
+
 }

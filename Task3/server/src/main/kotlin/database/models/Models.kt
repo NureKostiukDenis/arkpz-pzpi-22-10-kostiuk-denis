@@ -8,7 +8,9 @@ import jakarta.persistence.Table
 @Table(name = "product")
 data class ProductModel(
     @Id
-    val id: Long
+    val id: Long,
+    val name: String,
+    val sectionId: Long
 )
 
 @Entity
