@@ -1,6 +1,8 @@
 .gradle
 build/
 
+anware-firebase-adminsdk.json
+
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/

@@ -28,6 +28,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 
+    implementation("com.google.firebase:firebase-admin:9.0.0")
+    implementation("com.google.auth:google-auth-library-oauth2-http:1.17.0")
+
     implementation ("org.springframework.integration:spring-integration-mqtt:5.5.6")
 
     implementation("mysql:mysql-connector-java:8.0.32")
