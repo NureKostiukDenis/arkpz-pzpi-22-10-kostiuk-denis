@@ -1,0 +1,300 @@
+﻿Харківський національний університет радіоелектроніки
+
+Кафедра програмної інженерії
+
+
+
+
+
+
+
+Звіт 
+З Практичної роботи № 2.
+«Методи рефакторингу коду програмного забезпечення»
+
+з дисципліни «Аналіз та Рефакторинг коду» 
+
+
+
+
+
+
+
+Виконав:                ст. гр. ПЗПІ 22-10  Костюк Д.В.
+
+Перевірив: 
+Сокорчук І.П.
+
+
+
+Харків 2024
+1. Мета:
+     Навчитися основним методам рефакторингу коду на основі реальних прикладів з власних програмних проєктів. Навчитися ідентифікувати проблеми в коді та використовувати відповідні методи рефакторингу для покращення його якості.
+
+2. Завдання:
+     Обрати 3 методи рефакторингу та показати на прикладах як потрібно ними користуватися. 
+
+3. Хід роботи:
+Було обрано такі методи як:
+- Remove Control Flag
+- Replace Magic Number with Symbolic Constant
+- Move Field
+
+3.1. Remove Control Flag
+3.1.1. Опис методу
+     Цей метод допомагає позбутися зайвих прапорів, які використовуються для управління потоком виконання коду. Це робить логіку більш лінійною та зручною для читання, зменшує складність і ризик помилок, пов'язаних із неправильним оновленням таких змінних.
+
+3.1.2. Пояснення покращення коду наведеного в додатку А
+     Після рефакторингу видно, що код став компактнішим та без зайвої логіки. Прибираючи змінну яка відповідала за контрольний флаг зникла потреба в іншій змінні яка зберігала помилку в разі потреби. Це робить код більш читабельним та маштабованим в разі додаткових обробок помилок
+
+
+3.2. Replace Magic Number with Symbolic Constant
+     Цей метод  усуває використання незрозумілих чисел ("магічних чисел") у коді, замінюючи їх осмисленими константами з описовими іменами. Це підвищує читабельність, полегшує розуміння коду та спрощує внесення змін.
+
+3.2.1. Пояснення покращення коду наведеного в додатку Б
+     Після рефакторингу, код став інтуітивнішим та масштабованим. Через винесення числа 3 в константу яка доступна для всього проєкту, можна її змінити в одному місці, а не сюди де є число 3. Таким чином ми усунемо дублювання коду та зробило більш зрозуміле її використання
+     
+3.3. Move Field
+     Цей метод полягає у переміщенні змінної або стану до більш відповідного класу чи модуля. Це забезпечує логічну організацію коду, спрощує підтримку та поліпшує масштабованість, оскільки відповідальність за дані зосереджена у правильному місці.	
+
+3.3.1. Пояснення покращення коду наведеного в додатку В
+     Уся логіка щодо стилю книг тепер знаходиться в HomeViewModel. Тепер зміни до логіки можна вносити в одному місці, без ризику порушити інші частини програми. Також код став легко маштабований та у майбутньому можна легко додати нові стилі книг або змінити логіку вибору стилю, не зачіпаючи код головних функцій.
+
+4. Висновок
+     Методи рефакторингу допомагають зробити код більш масштабованим і логічним, усунувши проблеми, пов’язані з дублюванням, складністю та нечітким розподілом відповідальностей. 
+
+
+5. Джерела 
+5.1. Martin Fowler. Catalog. Refactoring. URL: https://refactoring.com/catalog/ (дата звернення: 29.11.2024).
+
+5.2. Fowler M. Refactoring: Improving the Design of Existing Code. Pearson Education, Limited, 2018.
+
+6. Відео презентація 
+https://youtu.be/hNdq42qKUPE
+
+
+ДОДАТОК А
+
+Код до рефакторингу
+override suspend fun initialize(): Result<Unit> {
+    Log.d(TAG, "Captcha start initializing")
+    var isInitialized = false
+    var error: Throwable = Exception()
+
+    try {
+        recaptchaClient = Recaptcha.fetchClient(application, apiKey)
+        Log.d(TAG, "Captcha success initialized")
+        isInitialized = true
+    } catch (e: RecaptchaException) {
+        error = e
+        Log.d(TAG, "Error initialize: $e")
+        isInitialized = false
+    }
+
+    return if (isInitialized) {
+        Result.success(Unit)
+    } else {
+        Result.failure(error)
+    }
+}
+
+Код після рефакторингу
+override suspend fun initialize(): Result<Unit> {
+    Log.d(TAG, "Captcha start initializing")
+    try {
+        recaptchaClient = Recaptcha.fetchClient(application, apiKey)
+        Log.d(TAG, "Captcha success initialized")
+        return  Result.success(Unit)
+    } catch (e: RecaptchaException) {
+        Log.d(TAG, "Error initialize: $e")
+        return Result.failure(e)
+    }
+}
+
+
+ДОДАТОК Б
+
+Код до рефакторингу
+private fun setSlimBookAdapter(){
+    val gridLayoutManager = GridLayoutManager(context, 3)
+    binding.bookList.layoutManager = gridLayoutManager
+}
+
+Код після рефакторингу
+private fun setSlimBookAdapter(){
+    val gridLayoutManager = GridLayoutManager(context, SLIM_BOOK_IN_ROW_COUNT)
+    binding.bookList.layoutManager = gridLayoutManager
+}
+
+companion object{
+    const val SLIM_BOOK_IN_ROW_COUNT = 3
+}
+
+
+
+ДОДАТОК В
+
+Код до рефакторингу
+private var bookStyle: BookView.BookDisplayStyle = STANDARD_BOOK_STYLE
+
+override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+    super.onViewCreated(view, savedInstanceState)
+
+    binding.actionField.listStyleChangerButton.setOnClickListener{ button ->
+        changeStateOfBookStyleButton()
+
+        bookStyle = if(!button.isActivated){
+            BookView.BookDisplayStyle.WIDE
+        }else{
+            BookView.BookDisplayStyle.SLIM
+        }
+
+        setBookStyle()
+        isActivatedChangeButton = button.isActivated
+    }
+
+    mainActivityModel.books.observe(viewLifecycleOwner) { books ->
+        bookAdapter.setBooks(books)
+        bookAdapter.setStyle(bookStyle)
+    }
+
+    initializeBookAdapter()
+
+    bookAdapter.setBooks(mainActivityModel.books.value)
+}
+
+    private fun setBookStyle(){
+        when(bookStyle){
+            BookView.BookDisplayStyle.WIDE -> setWideBookAdapter()
+            BookView.BookDisplayStyle.SLIM -> setSlimBookAdapter()
+        }
+    }
+
+    private fun setWideBookAdapter(){
+        binding.bookList.layoutManager = LinearLayoutManager(context)
+        bookAdapter.setStyle(bookStyle)
+    }
+
+    private fun setSlimBookAdapter(){
+        val gridLayoutManager = GridLayoutManager(context, SLIM_BOOK_IN_ROW_COUNT)
+        binding.bookList.layoutManager = gridLayoutManager
+        bookAdapter.setStyle(bookStyle)
+    }
+
+Код після рефакторингу
+
+override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+    super.onViewCreated(view, savedInstanceState)
+
+    binding.actionField.listStyleChangerButton.setOnClickListener{
+        changeStateOfBookStyleButton()
+        homeViewModel.changeBookStyleByActivated(isActivatedBookStyleButton)
+    }
+
+    mainActivityModel.books.observe(viewLifecycleOwner) { books ->
+        bookAdapter.setBooks(books)
+    }
+
+    homeViewModel.bookStyle.observe(viewLifecycleOwner){ displayStyle ->
+        when(displayStyle){
+            BookView.BookDisplayStyle.SLIM -> setSlimBookAdapter()
+            BookView.BookDisplayStyle.WIDE -> setWideBookAdapter()
+            else -> setWideBookAdapter()
+        }
+        bookAdapter.setStyle(displayStyle)
+    }
+
+    initializeBookAdapter()
+}
+
+private fun setWideBookAdapter(){
+    binding.bookList.layoutManager = LinearLayoutManager(context)
+}
+
+private fun setSlimBookAdapter(){
+    val gridLayoutManager = GridLayoutManager(context, SLIM_BOOK_IN_ROW_COUNT)
+    binding.bookList.layoutManager = gridLayoutManager
+}
+
+class HomeViewModel : ViewModel() {
+
+    private val _bookStyle = MutableLiveData<BookDisplayStyle>()
+    val bookStyle: LiveData<BookDisplayStyle> = _bookStyle
+
+    init {
+        changeBookStyle(STANDARD_BOOK_STYLE)
+    }
+
+    private fun changeBookStyle(bookStyle: BookDisplayStyle){
+        _bookStyle.postValue(bookStyle)
+    }
+
+    fun changeBookStyleByActivated(isActivated: Boolean){
+        val bookStyle = if(!isActivated) BookDisplayStyle.SLIM else BookDisplayStyle.WIDE
+        changeBookStyle(bookStyle)
+    }
+
+    companion object{
+        val STANDARD_BOOK_STYLE: BookDisplayStyle = BookDisplayStyle.WIDE
+    }
+}
+
+
+ДОДАТОК Г
+Слайди презентації
+
+Рисунок 1 – 1 слайд презентації
+
+
+Рисунок 2 – 2 слайд презентації
+
+Рисунок 3 – 3 слайд презентації
+
+
+Рисунок 4 – 4 слайд презентації
+
+
+Рисунок 5 – 5 слайд презентації
+
+
+Рисунок 6 – 6 слайд презентації
+
+
+Рисунок 7 – 7 слайд презентації
+
+
+Рисунок 8 – 8 слайд презентації
+
+
+Рисунок 9 – 9 слайд презентації
+
+
+Рисунок 10 – 10 слайд презентації
+
+
+Рисунок 11 – 11 слайд презентації
+
+
+Рисунок 12 – 12 слайд презентації
+
+
+Рисунок 13 – 13 слайд презентації
+
+
+Рисунок 14 – 14 слайд презентації
+
+
+Рисунок 15 – 15 слайд презентації
+
+
+Рисунок 16 – 16 слайд презентації
+
+
+Рисунок 17 – 17 слайд презентації
+
+
+Рисунок 18 – 18 слайд презентації
+
+
+Рисунок 19 – 19 слайд презентації
+
