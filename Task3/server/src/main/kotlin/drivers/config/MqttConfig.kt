@@ -1,7 +1,7 @@
-package org.example.config
+package org.anware.drivers.config
 
-import org.anware.data.controler.MqttBrokerService
-import org.example.core.handlers.MqttMessageHandler
+import org.anware.domain.handler.MqttMessageHandler
+import org.anware.presentation.controler.MqttController
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -35,18 +35,21 @@ class MqttConfig {
     }
 
     @Bean
-    fun inputChannel(): MessageChannel = DirectChannel()
+    fun mqttInputChannel(): MessageChannel = DirectChannel()
 
     @Bean
-    fun mqttAdapter(mqttClientFactory: MqttPahoClientFactory, inputChannel: MessageChannel): MqttPahoMessageDrivenChannelAdapter {
-        val mqttAdapter = MqttPahoMessageDrivenChannelAdapter("mqttClientId", mqttClientFactory, "warehouse/entry/#")
-        mqttAdapter.setOutputChannel(inputChannel)
-        return mqttAdapter
+    fun mqttAdapter(mqttClientFactory: MqttPahoClientFactory, mqttInputChannel: MessageChannel): MqttPahoMessageDrivenChannelAdapter {
+        val adapter = MqttPahoMessageDrivenChannelAdapter(
+            "allah30000", mqttClientFactory, "warehouse/#"
+        )
+        adapter.setOutputChannel(mqttInputChannel)
+        adapter.setCompletionTimeout(5000)
+        return adapter
     }
 
     @Bean
-    fun mqttBrokerService(handlers: List<MqttMessageHandler>, mqttClientFactory: MqttPahoClientFactory): MqttBrokerService {
-        return MqttBrokerService(handlers, mqttClientFactory)
+    fun mqttBrokerService(handlers: List<MqttMessageHandler>, mqttClientFactory: MqttPahoClientFactory): MqttController {
+        return MqttController(handlers)
     }
 
 }
