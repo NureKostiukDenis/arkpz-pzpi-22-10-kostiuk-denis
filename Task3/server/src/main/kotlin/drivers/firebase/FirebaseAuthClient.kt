@@ -1,9 +1,9 @@
 package org.anware.drivers.firebase
 
-import org.anware.data.dto.FirebaseSignInRequest
-import org.anware.data.dto.FirebaseSignInResponse
-import org.anware.data.dto.RefreshTokenRequest
-import org.anware.data.dto.RefreshTokenResponse
+import org.anware.data.dto.firebase.FirebaseSignInRequest
+import org.anware.data.dto.firebase.FirebaseSignInResponse
+import org.anware.data.dto.firebase.RefreshTokenRequest
+import org.anware.data.dto.firebase.RefreshTokenResponse
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component

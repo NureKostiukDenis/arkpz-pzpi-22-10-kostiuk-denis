@@ -1,23 +1,22 @@
 package org.anware.data.service
 
-import org.anware.data.dto.ItemModel
-import org.anware.data.dto.WarehouseSectionModel
+import org.anware.data.dto.SectionModel
 import org.anware.data.repository.SectionRepository
 
 class SectionService(private val sectionRepository: SectionRepository) {
-    fun findSectionById(id: Int): WarehouseSectionModel? {
+    fun findSectionById(id: Int): SectionModel? {
         return sectionRepository.findById(id).orElse(null)
     }
 
-    fun findSectionByName(name: String): WarehouseSectionModel? {
-        return sectionRepository.findByName(name) // Предполагается, что есть метод findByName
+    fun findSectionByName(name: String): SectionModel? {
+        return sectionRepository.findByName(name)
     }
 
-    fun findSectionsInWarehouse(warehouseId: Int): List<WarehouseSectionModel> {
-        return sectionRepository.findAllByWarehouseId(warehouseId) // Метод в репозитории для поиска по складу
+    fun findSectionsInWarehouse(warehouseId: Int): List<SectionModel> {
+        return sectionRepository.findAllByWarehouseId(warehouseId)
     }
 
-    fun saveSection(section: WarehouseSectionModel): WarehouseSectionModel {
+    fun saveSection(section: SectionModel): SectionModel {
         return sectionRepository.save(section)
     }
 

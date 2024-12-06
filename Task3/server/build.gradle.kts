@@ -32,6 +32,7 @@ dependencies {
     implementation("com.google.auth:google-auth-library-oauth2-http:1.17.0")
 
     implementation ("org.springframework.integration:spring-integration-mqtt:5.5.6")
+    implementation("org.springframework.boot:spring-boot-starter-security")
 
     implementation("mysql:mysql-connector-java:8.0.32")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")

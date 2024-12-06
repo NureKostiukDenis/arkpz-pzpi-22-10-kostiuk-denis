@@ -1,5 +1,6 @@
 package org.anware.presentation.controler
 
+import org.anware.data.dto.CreateUserRequest
 import org.anware.data.service.UserService
 import org.anware.drivers.firebase.FirebaseAuthClient
 import org.anware.drivers.firebase.InvalidLoginCredentialsException
@@ -7,10 +8,8 @@ import org.anware.drivers.firebase.InvalidRefreshTokenException
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RequestParam
-import org.springframework.web.bind.annotation.RestController
+import org.springframework.messaging.handler.annotation.Header
+import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("api/user")
@@ -21,10 +20,9 @@ class AuthController @Autowired constructor(
 
     @PostMapping("/create")
     fun createUser(
-        @RequestParam email: String,
-        @RequestParam password: String
+        @RequestBody body: CreateUserRequest
     ): ResponseEntity<String> {
-        userService.create(email, password)
+        userService.create(body.email, body.password, body.userName)
         return ResponseEntity("User created successfully", HttpStatus.CREATED)
     }
 

@@ -2,6 +2,7 @@ package org.anware.presentation.controler
 
 import org.anware.data.dto.BadResponse
 import org.anware.data.service.AccountAlreadyExistsException
+import org.anware.domain.handler.ApiKeyInvalidException
 import org.apache.coyote.BadRequestException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -36,5 +37,14 @@ class GlobalExceptionHandler {
             message = exception.message ?: "An error occurred"
         )
         return ResponseEntity(response, HttpStatus.CONFLICT)
+    }
+
+    @ExceptionHandler(ApiKeyInvalidException::class)
+    fun handleApiKeyInvalid(exception: AccountAlreadyExistsException): ResponseEntity<BadResponse> {
+        val response = BadResponse(
+            status = "unsuccessful",
+            message = exception.message ?: "An error occurred"
+        )
+        return ResponseEntity(response, HttpStatus.FORBIDDEN)
     }
 }

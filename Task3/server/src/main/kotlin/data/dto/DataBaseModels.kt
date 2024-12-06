@@ -1,131 +1,132 @@
 package org.anware.data.dto
 
-import com.google.type.DateTime
 import jakarta.persistence.*
-import org.jetbrains.annotations.NotNull
+import java.time.LocalDateTime
 
 @Entity
-@Table(name = "employees")
-data class EmployeeModel(
+@Table(name = "user")
+data class UserModel(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    val id: Int,
+    val id: Int? = null,
 
-    @Column(name = "firebase_uid", unique = true, nullable = false)
-    val firebaseUid: String,
+    @Column(name = "uid", unique = true, nullable = true)
+    val uid: String? = null,
 
-    @Column(name = "is_admin", nullable = false)
-    val isAdmin: Boolean,
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "warehouses_id", nullable = false)
-    val warehouse: WarehouseModel
+    @Column(name = "role", nullable = true)
+    val role: String? = null
 )
 
-
 @Entity
-@Table(name = "items")
-data class ItemModel(
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    val id: Int,
-
-    @Column(name = "rfid_tag", unique = true, nullable = true)
-    val rfidTag: String?,
-
-    @Column(name = "name", nullable = false)
-    val name: String,
-
-    @Column(name = "created_at", nullable = false)
-    val createdAt: java.time.LocalDateTime,
-
-    @Column(name = "updated_at", nullable = false)
-    val updatedAt: java.time.LocalDateTime
-)
-
-
-@Entity
-@Table(name = "warehouses")
+@Table(name = "warehouse")
 data class WarehouseModel(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    val id: Int,
+    val id: Int? = null,
 
-    @Column(name = "name", nullable = false)
-    val name: String
+    @Column(name = "name", nullable = true)
+    val name: String? = null,
+
+    @Column(name = "password", nullable = true)
+    val password: String? = null
 )
 
-
 @Entity
-@Table(name = "sections")
-data class WarehouseSectionModel(
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    val id: Int,
-
-    @Column(name = "name", unique = true, nullable = false)
-    val name: String,
-
-    @OneToOne
-    @JoinColumn(name = "start_section_gate_id", referencedColumnName = "id", nullable = false)
-    val startGate: GateModel,
-
-    @OneToOne
-    @JoinColumn(name = "end_section_gate_id", referencedColumnName = "id", nullable = false)
-    val endGate: GateModel,
+@Table(name = "user_warehouse")
+data class UserWarehouseModel(
+    @EmbeddedId
+    val id: UserWarehouseId,
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "warehouses_id", nullable = false)
-    val warehouse: WarehouseModel,
+    @MapsId("userId")
+    @JoinColumn(name = "user_id", nullable = false)
+    val user: UserModel,
 
-    @Column(name = "capacity", nullable = false)
-    val capacity: Int
+    @ManyToOne(fetch = FetchType.LAZY)
+    @MapsId("warehouseId")
+    @JoinColumn(name = "warehouse_id", nullable = false)
+    val warehouse: WarehouseModel
+)
+
+@Embeddable
+data class UserWarehouseId(
+    @Column(name = "user_id")
+    val userId: Int,
+
+    @Column(name = "warehouse_id")
+    val warehouseId: Int
 )
 
 @Entity
-@Table(name = "gates")
+@Table(name = "gate")
 data class GateModel(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    val id: Int
+    val id: Int? = null
 )
 
-
 @Entity
-@Table(name = "movements")
-data class MovementModel(
+@Table(name = "section")
+data class SectionModel(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    val id: Int,
+    val id: Int? = null,
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "item_id", referencedColumnName = "item_id")
-    @JoinColumn(name = "section_id", referencedColumnName = "section_id")
-    val itemLocation: ItemLocationsModel,
+    @JoinColumn(name = "warehouse_id", nullable = false)
+    val warehouse: WarehouseModel,
 
-    @Column(name = "updated_at")
-    val updatedAt: java.time.LocalDateTime?
+    @Column(name = "name", nullable = true)
+    val name: String? = null,
+
+    @Column(name = "capacity", nullable = false)
+    val capacity: Int,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "start_gate_id", nullable = false)
+    val startGate: GateModel,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "end_gate_id", nullable = false)
+    val endGate: GateModel
 )
 
+@Entity
+@Table(name = "item")
+data class ItemModel(
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    val id: Int? = null,
 
+    @Column(name = "rfid_tag", nullable = true)
+    val rfidTag: String? = null,
+
+    @Column(name = "name", nullable = true)
+    val name: String? = null,
+
+    @Column(name = "created_at", nullable = false)
+    val createdAt: LocalDateTime,
+
+    @Column(name = "updated_at", nullable = false)
+    val updatedAt: LocalDateTime
+)
 
 @Entity
-@Table(name = "item_locations")
-data class ItemLocationsModel(
+@Table(name = "item_location")
+data class ItemLocationModel(
     @EmbeddedId
     val id: ItemLocationId,
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @MapsId("itemId")  // связываем itemId из составного идентификатора
+    @MapsId("itemId")
     @JoinColumn(name = "item_id", nullable = false)
     val item: ItemModel,
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @MapsId("sectionId")  // связываем sectionId из составного идентификатора
+    @MapsId("sectionId")
     @JoinColumn(name = "section_id", nullable = false)
-    val section: WarehouseSectionModel
+    val section: SectionModel
 )
-
 
 @Embeddable
 data class ItemLocationId(
@@ -134,4 +135,23 @@ data class ItemLocationId(
 
     @Column(name = "section_id")
     val sectionId: Int
+)
+
+@Entity
+@Table(name = "movment")
+data class MovementModel(
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    val id: Int? = null,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "item_id", nullable = false)
+    val item: ItemModel,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "section_id", nullable = false)
+    val section: SectionModel,
+
+    @Column(name = "updated_at", nullable = false)
+    val updatedAt: LocalDateTime
 )

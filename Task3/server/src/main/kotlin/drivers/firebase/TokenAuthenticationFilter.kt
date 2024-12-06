@@ -8,20 +8,23 @@ import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.anware.config.SecurityConfig.Companion.WHITELISTED_API_ENDPOINTS
+import org.anware.data.repository.UserRepository
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ProblemDetail
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
+import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
 
 @Component
-internal class TokenAuthenticationFilter @Autowired constructor(
-    val firebaseAuth: FirebaseAuth
+internal class TokenAuthenticationFilter constructor(
+    val firebaseAuth: FirebaseAuth,
+    val userRepository: UserRepository
 ): OncePerRequestFilter() {
 
     private val objectMapper = ObjectMapper()
@@ -58,14 +61,16 @@ internal class TokenAuthenticationFilter @Autowired constructor(
                 val firebaseToken = firebaseAuth.verifyIdToken(token)
 
                 val userId = firebaseToken.claims[USER_ID_CLAIM]?.toString()
-
                 if (userId.isNullOrBlank()) {
                     logger.warn("No user ID found in token")
                     setAuthErrorDetails(response, "Invalid token: No user ID")
                     return
                 }
 
-                val authentication = UsernamePasswordAuthenticationToken(userId, null, emptyList())
+                val roles = getRolesForUser(userId)
+                val authorities = listOf(SimpleGrantedAuthority("ROLE_$roles"))
+
+                val authentication = UsernamePasswordAuthenticationToken(userId, null, authorities)
                 authentication.details = WebAuthenticationDetailsSource().buildDetails(request)
                 SecurityContextHolder.getContext().authentication = authentication
 
@@ -81,6 +86,10 @@ internal class TokenAuthenticationFilter @Autowired constructor(
             logger.error("Unexpected error in authentication filter", e)
             setAuthErrorDetails(response, "Unexpected authentication error")
         }
+    }
+
+    private fun getRolesForUser(uid: String): String? {
+        return userRepository.findByUid(uid)?.role
     }
 
     private fun setAuthErrorDetails(

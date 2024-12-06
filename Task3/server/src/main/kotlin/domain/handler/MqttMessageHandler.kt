@@ -4,4 +4,4 @@ interface MqttMessageHandler {
     fun handleMessage(topic: String, payload: String, warehouseApiKey: String?, gateId: String?)
 }
 
-class ApiKeyInvalid(msg: String?): Exception(msg)
+class ApiKeyInvalidException(msg: String?): Exception(msg)
