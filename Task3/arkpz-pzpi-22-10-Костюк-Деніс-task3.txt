@@ -1,0 +1,323 @@
+﻿Харківський національний університет радіоелектроніки
+
+Кафедра програмної інженерії
+
+
+
+
+
+
+Звіт 
+З Лабораторної роботи № 3.
+«РОЗРОБКА БІЗНЕС-ЛОГІКИ ТА ФУНКЦІЙ АДМІНІСТРУВАННЯ СЕРВЕРНОЇ ЧАСТИНИ ПРОГРАМНОЇ СИСТЕМИ»
+
+з дисципліни «Аналіз та Рефакторинг коду» 
+
+
+
+
+
+
+Виконав:                ст. гр. ПЗПІ 22-10  Костюк Д.В.Перевірив: 
+Дашенков Д. С.
+
+
+Харків 2024
+
+
+      1. Інженерні рішення
+      Для аутентифікації користувачів застосовується Firebase Authentication, що надає можливість використовувати JWT-токен (JSON Web Token), який видається Firebase після успішної аутентифікації. Токен містить UID користувача та ніші потрібні дані. Цей токен додається до кожного запиту де потрібен користувач і служить основним механізмом для перевірки автентичності та авторизації. Сервер перевіряє валідність токена, а також витягує UID для ідентифікації користувача та визначення його ролей і прав доступу. 
+      Для контролю доступу використовується Spring Security. Цей фреймворк дозволяє визначати ролі користувачів, наприклад, "Адміністратор" або "Працівник складу". Ролі забезпечують чітке розмежування прав доступу до функціоналу системи, що гарантує безпеку операцій.
+      Для обмеження доступу до складів реалізований власний механізм API-ключів. API-ключі формуються на основі пароля складу, назви та айді складу, які зберігається у системі. Також в кожнопу запиті де є API-ключ перевіряється UID користувача на відношення цього користувача до цього складу. 
+   1. Генерація API-ключа: Ключ генерується з використанням алгоритму HMAC-SHA256, де як секрет використовується пароль складу.
+   2. Валідація API-ключа: Під час кожного запиту ключ декодується, а його підпис перевіряється на відповідність очікуваному значенню.
+      Цей механізм гарантує, що доступ до складів мають лише уповноважені користувачі з коректними ключами доступу.
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      2. Діаграма діяльності серверної частини
+      
+
+      Рисунок 2.1 – Діаграма діяльності валідації користувача «User validation»
+      
+      
+      Рисунок 2.2 – Діаграма діяльності отримання та обробка запиту від користувача «User features»
+      
+      
+      Рисунок 2.3 – Діаграма діяльності реєстрація в системі «User registration»
+      
+      
+      Рисунок 2.4 – Діаграма діяльності авторизації в системі «User Authentication»
+      
+      
+      
+      
+      3. Діаграма взаємодії серверної частини
+  
+      
+
+
+      Рисунок 3.1 – Діаграма взаємодії
+      
+      4. 
+
+ДОДАТОК А
+Код бізнес логіки для отримання звітів
+
+         @Service
+         class ReportService @Autowired constructor(
+             private val itemRepository: ItemRepository,
+             private val movementRepository: MovementRepository,
+             private val sectionRepository: SectionRepository
+         ): Logger() {
+         
+             fun getItemMovementHistory(warehouseId: Int, request: ItemMovementHistoryRequest): ItemMovementHistoryResponse {
+                 val item = itemRepository.findByRfidTag(request.itemRfidTag, warehouseId = warehouseId)
+                     ?: throw IllegalArgumentException("Item with RFID ${request.itemRfidTag} not found")
+         
+                 val movements = movementRepository.findMovementsForItem(
+                     itemId = item.id!!,
+                 )?.map { movement ->
+                     MovementDetail(
+                         date = movement.updatedAt,
+                         from = Location(
+                             warehouseName = movement.oldSection.warehouse.name ?: "Unknown",
+                             sectionTitle = movement.oldSection.name
+                         ),
+                         to = Location(
+                             warehouseName = movement.newSection.warehouse.name ?: "Unknown",
+                             sectionTitle = movement.newSection.name
+                         )
+                     )
+                 }
+         
+                 return ItemMovementHistoryResponse(
+                     status = "successful",
+                     itemRfidTag = request.itemRfidTag,
+                     name = item.name ?: "Unnamed Item",
+                     total = movements?.size ?: 0 ,
+                     movements = movements ?: emptyList()
+                 )
+             }
+         
+             fun getSectionLoad(warehouseId: Int, warehouseName: String): SectionLoadResponse {
+                 val sections = sectionRepository.findAllByWarehouseId(warehouseId)
+                     ?: throw IllegalArgumentException("Sections don`t exist for this warehouse")
+         
+                     val sectionsData = sections.map { section ->
+                     SectionInfo(
+                         name = section.name!!,
+                         currentLoad = sectionRepository.getCurrentLoadInSection(warehouseId, section.name),
+                         capacity = section.capacity
+                     )
+                 }
+         
+                 return SectionLoadResponse(
+                     warehouseName = warehouseName,
+                     status = "successful",
+                     sections = sectionsData,
+                     total = sectionsData.size
+                 )
+             }
+         
+             fun getItemsWithoutMovement(warehouseId: Int, warehouseName: String, days: Int, size: Int): ItemsWithoutMovementResponse {
+                 val dateThreshold = LocalDateTime.now().minusDays(days.toLong())
+                 val items = movementRepository.findItemsWithoutMovementSince(warehouseId, dateThreshold)?.map { item ->
+                     ItemInfo(
+                         name = item.name !!,
+                         lastMovementDate = movementRepository.getLastMovementDate(warehouseId, item.id!!)?: LocalDateTime.MIN,
+                         location = Location(
+                             warehouseName = warehouseName,
+                             sectionTitle = sectionRepository.findByItemRfidTagInWarehouse(warehouseId, item.rfidTag!!)?.name ?: "No attached"
+                         )
+                     )
+                 }
+         
+                 return ItemsWithoutMovementResponse(
+                     status = "successful",
+                     total = items?.size ?: 0,
+                     items = items ?: emptyList()
+                 )
+             }
+         
+             fun getPeakActivityHours(
+                 warehouseId: Int,
+                 warehouseName: String,
+                 request: PeakActivityHoursRequest
+             ): PeakActivityResponse {
+                 val peakData = movementRepository.findDetailedActivityByWarehouseAndDateRange(
+                     startDate = request.startDate,
+                     endDate = request.endDate,
+                     warehouseId = warehouseId
+                 )
+         
+                 val dailyActivities = peakData?.groupBy {
+                     it.get("day", java.sql.Date::class.java)?.toLocalDate()
+                 }?.mapNotNull { (day, tuples) ->
+                     if (day != null) {
+                         val peakHours = tuples.mapNotNull { tuple ->
+                             val hour = tuple.get("hour", Integer::class.java)?.toInt()
+                             val activityCount = tuple.get("activityCount", Number::class.java)?.toLong()
+                             if (hour != null && activityCount != null) {
+                                 PeakHours(hour, activityCount)
+                             } else {
+                                 null
+                             }
+                         }
+                         DailyActivity(day, peakHours)
+                     } else {
+                         null
+                     }
+                 } ?: emptyList()
+         
+         
+         
+                 return PeakActivityResponse(
+                     status = "successful",
+                     warehouse = warehouseName,
+                     total = dailyActivities.size,
+                     dailyActivities = dailyActivities
+                 )
+             }
+         
+         }
+         
+
+Код до бізнес логіки роботи з клієнтами
+         
+         @Service
+         class UserService @Autowired constructor(
+             val firebaseAuth: FirebaseAuth,
+             val realtimeDataBaseService: RealtimeDataBaseService,
+             val userDatabaseRepository: UserRepository,
+             val warehouseRepository: WarehouseRepository,
+             val userWarehouseRepository: UserWarehouseRepository
+         ) {
+         
+             fun create(emailId: String?, password: String?, name: String?) {
+         
+                 val request = UserRecord.CreateRequest()
+                     .setEmail(emailId)
+                     .setPassword(password)
+                     .setEmailVerified(true)
+         
+                 try {
+                     val userRecord = firebaseAuth.createUser(request)
+                     val uid = userRecord.uid
+         
+                     val userData = FirebaseRealTimeDatabaseUserModel(name = name.orEmpty(), email = emailId.orEmpty())
+         
+                     val savePath = "${RealtimeDataBaseService.USERS_PATH}/$uid"
+         
+                     realtimeDataBaseService.saveData(savePath, userData) { success, errorMsg ->
+                         if (!success) {
+                             throw RuntimeException("Failed to save user data to Realtime Database: $errorMsg")
+                         }
+                         val userDataBase = UserModel(id = null, uid = uid, role = UserRole.USER)
+                         userDatabaseRepository.save(userDataBase)
+                     }
+         
+                 } catch (exception: FirebaseAuthException) {
+                     if (exception.message?.contains("EMAIL_EXISTS") == true) {
+                         throw AccountAlreadyExistsException("Account with given email-id already exists")
+                     }
+                     throw exception
+                 }
+             }
+         
+             fun findUserByUID(firebaseUid: String): UserModel? {
+                 return userDatabaseRepository.findByUid(firebaseUid)
+             }
+         
+             fun findWarehouseByUserUID(firebaseUid: String): WarehouseModel? {
+                 return userDatabaseRepository.findWarehouseByUserUid(firebaseUid)
+             }
+         
+             fun attachUserToWarehouse(firebaseUid: String, warehouseId: Int) {
+                 val warehouse = warehouseRepository.findById(warehouseId).orElseThrow {
+                     EntityNotFoundException("Warehouse not found")
+                 }
+         
+                 val user = userDatabaseRepository.findByUid(firebaseUid)
+                     ?: throw EntityNotFoundException("User with UID $firebaseUid not found")
+         
+                 val warehouseUser = userWarehouseRepository.findById(UserWarehouseId(user.id!!, warehouseId))
+         
+                 if (warehouseUser.isPresent){
+                     throw IllegalArgumentException("User is invalid")
+                 }
+         
+                 val userWarehouse = UserWarehouseModel(
+                     id = UserWarehouseId(userId = user.id, warehouseId = warehouse.id!!),
+                     user = user,
+                     warehouse = warehouse,
+                 )
+         
+                 userWarehouseRepository.save(userWarehouse)
+                 makeUserStaff(firebaseUid)
+             }
+         
+             @Transactional
+             fun detachUserFromWarehouse(firebaseUid: String, warehouseId: Int) {
+                 val warehouse = warehouseRepository.findById(warehouseId).orElseThrow {
+                     EntityNotFoundException("Warehouse not found")
+                 }
+         
+                 val user = userDatabaseRepository.findByUid(firebaseUid)
+                     ?: throw EntityNotFoundException("User with UID $firebaseUid not found")
+         
+                 val warehouseUser = userWarehouseRepository.findById(UserWarehouseId(user.id!!, warehouseId)).orElseThrow {
+                     throw IllegalArgumentException("User is invalid")
+                 }
+                 deletePermissions(user.uid!!)
+                 userWarehouseRepository.deleteById(warehouseUser.id)
+                 deletePermissions(firebaseUid)
+             }
+         
+             fun makeUserAdmin(firebaseUid: String) {
+                 changeUserRole(firebaseUid, UserRole.ADMIN)
+             }
+         
+             fun makeUserStaff(firebaseUid: String) {
+                 changeUserRole(firebaseUid, UserRole.STAFF)
+             }
+         
+             fun deletePermissions(firebaseUid: String) {
+                 changeUserRole(firebaseUid, UserRole.USER)
+             }
+         
+             fun changeUserRole(firebaseUid: String, role: UserRole){
+                 val user = userDatabaseRepository.findByUid(firebaseUid)
+                     ?: throw IllegalArgumentException("User with UID $firebaseUid not found")
+                 val updatedUser = user.copy(role = role)
+                 userDatabaseRepository.save(updatedUser)
+             }
+         }
+         
+         
+Код для отримання даних про предмети
+
+             override fun getAllInWarehouse(apiKey: String): List<Item> {
+                 val warehouseId = apiKeyService.extractDataFromApiKey(apiKey)!!.warehouseId.toInt()
+                 return itemService.findAll(warehouseId) ?: emptyList()
+             }
+         
+             override fun getAllInSection(apiKey: String, sectionName: String): List<Item> {
+                 val warehouseId = apiKeyService.extractDataFromApiKey(apiKey)!!.warehouseId.toInt()
+                 sectionService.findByName(warehouseId, sectionName)
+                     ?: throw IllegalArgumentException("Section with name '$sectionName' in warehouse not found.")
+                 return itemService.findAll(warehouseId, sectionName) ?: emptyList()
+             }
+         
+         
+override fun getAllItemWithoutSection(apiKey: String): List<Item> {
+    val warehouseId = apiKeyService.extractDataFromApiKey(apiKey)!!.warehouseId.toInt()
+    return itemService.findAllWithoutSection(warehouseId) ?: emptyList()
+}
+         
