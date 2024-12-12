@@ -1,14 +1,20 @@
 package org.anware.data.dto.report
 
+import java.time.LocalDate
+
 data class PeakActivityResponse(
     val status: String,
     val warehouse: String,
-    val warehouseId: Int,
     val total: Int,
-    val peakHours: List<PeakHour>
+    val dailyActivities: List<DailyActivity>
 )
 
-data class PeakHour(
-    val timePeriod: String,
-    val activityCount: Int
+data class DailyActivity(
+    val day: LocalDate,
+    val peakHours: List<PeakHours>
+)
+
+data class PeakHours(
+    val hour: Int,
+    val activityCount: Long
 )
