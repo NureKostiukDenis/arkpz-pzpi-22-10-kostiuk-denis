@@ -1,38 +1,48 @@
 package org.anware.presentation.controler
 
+import org.anware.data.service.Logger
 import org.anware.domain.handler.MqttMessageHandler
 import org.springframework.integration.annotation.ServiceActivator
 import org.springframework.stereotype.Component
 
 @Component
-class MqttController(private val handlers: List<MqttMessageHandler>) {
+class MqttController(
+    private val handlers: List<MqttMessageHandler>
+): Logger() {
 
     @ServiceActivator(inputChannel = "mqttInputChannel")
-    fun processMessage(payload: String, headers: Map<String, Any>) {
+    fun processMessage(payload: Any, headers: Map<String, Any>) {
         val topic = headers["mqtt_receivedTopic"] as String? ?: ""
+        logger.info(topic)
         if(!validateTopic(topic)){
             return
         }
-        val warehouseAPIKey = extractWarehouseAPIKey(topic)
-        val gateId = extractGateId(topic)
+        val gateAPIKey = extractGateAPIKey(topic)
+        val gateCode = extractGateCode(topic)
 
         handlers.forEach { handler ->
-            handler.handleMessage(topic, payload, warehouseAPIKey, gateId)
+            handler.handleMessage(topic, payload.toString(), gateAPIKey, gateCode)
         }
     }
 
-    private fun extractWarehouseAPIKey(topic: String): String? {
-        val regex = Regex("""warehouse/(\w+)/entry/.*""")
+    private fun extractGateAPIKey(topic: String): String? {
+        val regex = Regex("""warehouse/([^/]+)/entry/.*""")
         return regex.find(topic)?.groups?.get(1)?.value
     }
 
-    private fun extractGateId(topic: String): String? {
-        val regex = Regex("""warehouse/.*/entry/(\w+).*""")
+    private fun extractGateCode(topic: String): String? {
+        val regex = Regex("""warehouse/[^/]+/entry/([^/]+)""")
         return regex.find(topic)?.groups?.get(1)?.value
     }
 
-    private fun validateTopic(topic: String): Boolean{
-        return true
+    private fun validateTopic(topic: String): Boolean {
+        val regexEntry = Regex("""warehouse/([^/]+)/entry/([^/]+)""")
+        val regexLog = Regex("""warehouse/([^/]+)/entry/([^/]+)""")
+        return regexEntry.matches(topic)
+    }
+
+    enum class TopicType{
+        ENTRY, LOG
     }
 }
 

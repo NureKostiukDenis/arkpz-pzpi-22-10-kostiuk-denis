@@ -9,12 +9,16 @@ import org.springframework.stereotype.Service
 @Service
 class WarehouseService @Autowired constructor(
     private val warehouseRepository: WarehouseRepository,
-    private val apiKeyService: ApiKey
+    private val apiKeyService: WarehouseApiKeyService
 ) {
 
-    fun getWarehouseByAPIKey(apiKey: String): WarehouseModel{
-        val warehouseId = apiKeyService.extractDataFromApiKey(apiKey)?.warehouseId ?: throw ApiKeyInvalidException("Api key is null")
-        val warehouse = warehouseRepository.getReferenceById(warehouseId.toInt())
+    fun getByAPIKey(apiKey: String): WarehouseModel?{
+        val warehouseId = apiKeyService.extractDataFromApiKey(apiKey) ?: return null
+        return getById(warehouseId.warehouseId.toInt())
+    }
+
+    fun getById(id: Int): WarehouseModel{
+        val warehouse = warehouseRepository.getReferenceById(id)
         return warehouse
     }
 
@@ -28,6 +32,8 @@ class WarehouseService @Autowired constructor(
         return warehouse
     }
 
-
+    fun deleteWarehouse(id: Int){
+        warehouseRepository.deleteById(id)
+    }
 
 }

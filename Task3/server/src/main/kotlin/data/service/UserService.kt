@@ -4,17 +4,15 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.UserRecord
 import jakarta.persistence.EntityNotFoundException
-import org.anware.config.SecurityConfig
-import org.anware.data.dto.UserModel
-import org.anware.data.dto.UserWarehouseId
-import org.anware.data.dto.UserWarehouseModel
-import org.anware.data.dto.WarehouseModel
-import org.anware.data.dto.firebase.FirebaseUserModel
+import org.anware.core.exeptions.AccountAlreadyExistsException
+import org.anware.data.dto.*
+import org.anware.data.dto.firebase.FirebaseRealTimeDatabaseUserModel
 import org.anware.data.repository.UserRepository
 import org.anware.data.repository.UserWarehouseRepository
 import org.anware.data.repository.WarehouseRepository
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 
 @Service
@@ -37,7 +35,7 @@ class UserService @Autowired constructor(
             val userRecord = firebaseAuth.createUser(request)
             val uid = userRecord.uid
 
-            val userData = FirebaseUserModel(uid = uid, name = name.orEmpty(), email = emailId.orEmpty())
+            val userData = FirebaseRealTimeDatabaseUserModel(name = name.orEmpty(), email = emailId.orEmpty())
 
             val savePath = "${RealtimeDataBaseService.USERS_PATH}/$uid"
 
@@ -45,7 +43,7 @@ class UserService @Autowired constructor(
                 if (!success) {
                     throw RuntimeException("Failed to save user data to Realtime Database: $errorMsg")
                 }
-                val userDataBase = UserModel(id = null, uid = uid, role = SecurityConfig.Roles.USER.name)
+                val userDataBase = UserModel(id = null, uid = uid, role = UserRole.USER)
                 userDatabaseRepository.save(userDataBase)
             }
 
@@ -67,26 +65,62 @@ class UserService @Autowired constructor(
 
     fun attachUserToWarehouse(firebaseUid: String, warehouseId: Int) {
         val warehouse = warehouseRepository.findById(warehouseId).orElseThrow {
-            EntityNotFoundException("Warehouse with ID $warehouseId not found")
+            EntityNotFoundException("Warehouse not found")
         }
 
-        val user = userDatabaseRepository.findByUid(firebaseUid) ?: throw EntityNotFoundException("User with UID $firebaseUid not found")
+        val user = userDatabaseRepository.findByUid(firebaseUid)
+            ?: throw EntityNotFoundException("User with UID $firebaseUid not found")
+
+        val warehouseUser = userWarehouseRepository.findById(UserWarehouseId(user.id!!, warehouseId))
+
+        if (warehouseUser.isPresent){
+            throw IllegalArgumentException("User is invalid")
+        }
 
         val userWarehouse = UserWarehouseModel(
-            id = UserWarehouseId(userId = user.id!!, warehouseId = warehouse.id!!),
+            id = UserWarehouseId(userId = user.id, warehouseId = warehouse.id!!),
             user = user,
-            warehouse = warehouse
+            warehouse = warehouse,
         )
 
         userWarehouseRepository.save(userWarehouse)
+        makeUserStaff(firebaseUid)
+    }
+
+    @Transactional
+    fun detachUserFromWarehouse(firebaseUid: String, warehouseId: Int) {
+        val warehouse = warehouseRepository.findById(warehouseId).orElseThrow {
+            EntityNotFoundException("Warehouse not found")
+        }
+
+        val user = userDatabaseRepository.findByUid(firebaseUid)
+            ?: throw EntityNotFoundException("User with UID $firebaseUid not found")
+
+        val warehouseUser = userWarehouseRepository.findById(UserWarehouseId(user.id!!, warehouseId)).orElseThrow {
+            throw IllegalArgumentException("User is invalid")
+        }
+        deletePermissions(user.uid!!)
+        userWarehouseRepository.deleteById(warehouseUser.id)
+        deletePermissions(firebaseUid)
     }
 
     fun makeUserAdmin(firebaseUid: String) {
-        val user = userDatabaseRepository.findByUid(firebaseUid) ?: throw IllegalArgumentException("User with UID $firebaseUid not found")
-        val updatedUser = user.copy(role = SecurityConfig.Roles.ADMIN.toString())
+        changeUserRole(firebaseUid, UserRole.ADMIN)
+    }
+
+    fun makeUserStaff(firebaseUid: String) {
+        changeUserRole(firebaseUid, UserRole.STAFF)
+    }
+
+    fun deletePermissions(firebaseUid: String) {
+        changeUserRole(firebaseUid, UserRole.USER)
+    }
+
+    fun changeUserRole(firebaseUid: String, role: UserRole){
+        val user = userDatabaseRepository.findByUid(firebaseUid)
+            ?: throw IllegalArgumentException("User with UID $firebaseUid not found")
+        val updatedUser = user.copy(role = role)
         userDatabaseRepository.save(updatedUser)
     }
 }
-
-class AccountAlreadyExistsException(message: String) : RuntimeException(message)
 

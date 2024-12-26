@@ -1,5 +1,6 @@
 package org.anware.data.service
 
+import org.anware.data.dto.UserRole
 import org.anware.data.repository.UserRepository
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.security.core.userdetails.UserDetails
@@ -19,7 +20,7 @@ class ServerUserDetailsService : UserDetailsService {
 
         return org.springframework.security.core.userdetails.User.builder()
             .username(user.uid)
-            .roles(user.role ?: "USER")
+            .roles(user.role.toString())
             .build()
     }
 }

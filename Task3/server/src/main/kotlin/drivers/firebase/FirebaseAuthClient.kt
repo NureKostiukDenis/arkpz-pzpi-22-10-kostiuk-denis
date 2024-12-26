@@ -1,5 +1,7 @@
 package org.anware.drivers.firebase
 
+import org.anware.core.exeptions.InvalidLoginCredentialsException
+import org.anware.core.exeptions.InvalidRefreshTokenException
 import org.anware.data.dto.firebase.FirebaseSignInRequest
 import org.anware.data.dto.firebase.FirebaseSignInResponse
 import org.anware.data.dto.firebase.RefreshTokenRequest
@@ -87,6 +89,3 @@ class FirebaseAuthClient{
 
 }
 
-class InvalidRefreshTokenException(s: String) : Throwable(s)
-
-class InvalidLoginCredentialsException(s: String) : Throwable(s)

@@ -1,6 +1,7 @@
 package org.anware.data.dto.report
 
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 data class ItemsWithoutMovementResponse(
     val status: String,
@@ -9,8 +10,7 @@ data class ItemsWithoutMovementResponse(
 )
 
 data class ItemInfo(
-    val id: String,
     val name: String,
-    val lastMovementDate: LocalDate,
+    val lastMovementDate: LocalDateTime,
     val location: Location
 )

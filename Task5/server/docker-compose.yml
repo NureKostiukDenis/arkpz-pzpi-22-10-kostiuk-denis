@@ -1,0 +1,36 @@
+services:
+  mqtt:
+    image: eclipse-mosquitto:latest
+    ports:
+      - "8223:1883"
+    volumes:
+      - ./anware-mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./anware-mqtt/pwfile:/mosquitto/config/pwfile
+    command: ["mosquitto", "-c", "/mosquitto/config/mosquitto.conf"]
+
+  mysql:
+    image: ubuntu/mysql:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: "PASSWORD"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pPASSWORD"]
+      interval: 10s
+      retries: 100000
+      start_period: 30s
+      timeout: 10s
+    volumes:
+      - ./anware-mysql/dump:/docker-entrypoint-initdb.d
+
+  server:
+    build:
+      context: ./anware-server
+      dockerfile: Dockerfile
+    depends_on:
+      mqtt:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./anware-firebase-adminsdk.json:/app/anware-firebase-adminsdk.json
